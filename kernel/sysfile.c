@@ -503,3 +503,10 @@ sys_pipe(void)
   }
   return 0;
 }
+
+uint64
+sys_hello(void)
+{
+  printf("hello world\n");
+  return 0;
+}
