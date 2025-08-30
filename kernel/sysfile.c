@@ -503,3 +503,42 @@ sys_pipe(void)
   }
   return 0;
 }
+
+uint64
+sys_lseek(void)
+{
+  struct file *f;
+  int off, whence;
+  argint(1, &off);
+  argint(2, &whence);
+  if (argfd(0, 0, &f) < 0)
+    return EBADF;
+  int oldoff = f->off;
+  if (f->type != FD_INODE)
+    return ESPIPE;
+  switch (whence)
+  {
+  case SEEK_SET:
+    f->off = off;
+    break;
+  case SEEK_CUR:
+    f->off += off;
+    break;
+  case SEEK_END:
+    f->off = f->ip->size + off;
+    break;
+  default:
+    return EINVAL;
+  }
+  if (f->off < 0)
+  {
+    f->off = oldoff;
+    return EINVAL;
+  }
+  if (f->off > f->ip->size)
+  {
+    f->off = oldoff;
+    return EOVERFLOW;
+  }
+  return 0;
+ }
