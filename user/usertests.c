@@ -3173,6 +3173,8 @@ drivetests(int quick, int continuous, char *justone) {
 int
 main(int argc, char *argv[])
 {
+  uint start_time = uptime();
+  printf("Start Time: %d\n", start_time);
   int continuous = 0;
   int quick = 0;
   char *justone = 0;
@@ -3193,5 +3195,8 @@ main(int argc, char *argv[])
     exit(1);
   }
   printf("ALL TESTS PASSED\n");
+  uint end_time = uptime();
+  printf("End  Time: %d\n", end_time);
+  printf("Elapsed: %d\n", end_time-start_time);
   exit(0);
 }

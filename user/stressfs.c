@@ -16,6 +16,8 @@
 int
 main(int argc, char *argv[])
 {
+  uint stime = uptime();
+  printf("Start Time: %d\n",stime);
   int fd, i;
   char path[] = "stressfs0";
   char data[512];
@@ -45,5 +47,8 @@ main(int argc, char *argv[])
 
   wait(0);
 
+  uint etime = uptime();
+  printf("End  Time: %d\n",etime);
+  printf("Elapsed Time: %d\n",etime-stime);
   exit(0);
 }
