@@ -555,7 +555,10 @@ sys_lseek(void)
   argint(1, &off);
   argint(2, &whence);
   if (argfd(0, 0, &f) < 0)
-    return -1;
+    return EBADF;
+  int oldoff = f->off;
+  if (f->type != FD_INODE)
+    return ESPIPE;
   switch (whence)
   {
   case SEEK_SET:
@@ -568,7 +571,17 @@ sys_lseek(void)
     f->off = f->ip->size + off;
     break;
   default:
-    return -1;
+    return EINVAL;
+  }
+  if (f->off < 0)
+  {
+    f->off = oldoff;
+    return EINVAL;
+  }
+  if (f->off > f->ip->size)
+  {
+    f->off = oldoff;
+    return EOVERFLOW;
   }
   return 0;
 }
