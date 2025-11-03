@@ -18,65 +18,77 @@ struct run {
   struct run *next;
 };
 
+// Compute maximum number of pages available in physical memory.
+// PHYSTOP and KERNBASE are compile-time macros in param.h / memlayout.h.
+#define MAXPAGES ((PHYSTOP - KERNBASE) / PGSIZE)
+
 struct {
   struct spinlock lock;
-  struct run *freelist;
+  // Stack of free page physical addresses (PA).
+  // We push on free and pop on alloc (LIFO).
+  uint64 free_pages[MAXPAGES];
+  int free_count;
 } kmem;
 
+
+// Initialize allocator — used early, before kvm is setup for all memory.
+// This adds the pages in [vstart, vend) to the free-list.
+// Initialize for the rest of physical memory after paging is enabled
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  kmem.free_count = 0;
   freerange(end, (void*)PHYSTOP);
 }
 
 void
-freerange(void *pa_start, void *pa_end)
-{
+freerange(void *pa_start, void *pa_end) {
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
   for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
     kfree(p);
 }
 
-// Free the page of physical memory pointed at by pa,
-// which normally should have been returned by a
-// call to kalloc().  (The exception is when
-// initializing the allocator; see kinit above.)
+// Free the page of physical memory pointed at by pa.
+// pa must be page-aligned, and within [KERNBASE, PHYSTOP).
 void
 kfree(void *pa)
 {
-  struct run *r;
+  uint64 a = (uint64)pa;
 
-  if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
+  // sanity checks similar to original xv6
+  if (a % PGSIZE || a < KERNBASE || a >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
-
-  r = (struct run*)pa;
+  // Fill with junk to catch dangling references.
+  memset((void*)a, 1, PGSIZE);
 
   acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
+  if (kmem.free_count >= MAXPAGES) {
+    release(&kmem.lock);
+    panic("kfree: free list overflow");
+  }
+  // push the page physical address onto the stack
+  kmem.free_pages[kmem.free_count++] = a;
   release(&kmem.lock);
 }
 
 // Allocate one 4096-byte page of physical memory.
-// Returns a pointer that the kernel can use.
-// Returns 0 if the memory cannot be allocated.
-void *
+// Returns a pointer to the page interior (as void*), or 0 if none.
+void*
 kalloc(void)
 {
-  struct run *r;
-
   acquire(&kmem.lock);
-  r = kmem.freelist;
-  if(r)
-    kmem.freelist = r->next;
+  if (kmem.free_count <= 0) {
+    release(&kmem.lock);
+    return 0;
+  }
+  // pop from stack
+  uint64 a = kmem.free_pages[--kmem.free_count];
   release(&kmem.lock);
 
-  if(r)
-    memset((char*)r, 5, PGSIZE); // fill with junk
-  return (void*)r;
+  //fill with junk to help catch usage
+  memset((void*)a, 5, PGSIZE);
+  return (void*)a;
 }
