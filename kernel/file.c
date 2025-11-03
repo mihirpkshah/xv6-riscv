@@ -12,6 +12,10 @@
 #include "file.h"
 #include "stat.h"
 #include "proc.h"
+#include "slab.h"
+
+// slab cache for struct file objects
+static struct slab_cache *file_slab = 0;
 
 struct devsw devsw[NDEV];
 struct {
@@ -23,35 +27,31 @@ void
 fileinit(void)
 {
   initlock(&ftable.lock, "ftable");
+  file_slab = slab_create(sizeof(struct file));
+  if (!file_slab)
+    panic("fileinit: could not create file slab");
 }
 
 // Allocate a file structure.
 struct file*
 filealloc(void)
 {
-  struct file *f;
+  // Allocate from slab cache
+  struct file *f = (struct file*)slab_alloc(file_slab);
+  if (!f) return 0;
+  // set ref to 1
+  f->ref = 1;
+  f->type = FD_NONE;
+  return f;
 
-  acquire(&ftable.lock);
-  for(f = ftable.file; f < ftable.file + NFILE; f++){
-    if(f->ref == 0){
-      f->ref = 1;
-      release(&ftable.lock);
-      return f;
-    }
-  }
-  release(&ftable.lock);
-  return 0;
 }
 
 // Increment ref count for file f.
 struct file*
 filedup(struct file *f)
 {
-  acquire(&ftable.lock);
-  if(f->ref < 1)
-    panic("filedup");
+  if (f->ref < 1) panic("filedup");
   f->ref++;
-  release(&ftable.lock);
   return f;
 }
 
@@ -59,27 +59,26 @@ filedup(struct file *f)
 void
 fileclose(struct file *f)
 {
-  struct file ff;
-
-  acquire(&ftable.lock);
-  if(f->ref < 1)
-    panic("fileclose");
-  if(--f->ref > 0){
-    release(&ftable.lock);
+  if(f == 0)
     return;
-  }
-  ff = *f;
-  f->ref = 0;
-  f->type = FD_NONE;
-  release(&ftable.lock);
+  if (f->ref < 1) panic("fileclose");
+  f->ref--;
+  if (f->ref > 0) return;
 
-  if(ff.type == FD_PIPE){
-    pipeclose(ff.pipe, ff.writable);
-  } else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
-    begin_op();
-    iput(ff.ip);
-    end_op();
+  // last reference: cleanup depending on type
+  int fdtype = f->type;
+  if(fdtype == FD_PIPE){
+    pipeclose(f->pipe, f->writable);
+  } else if(fdtype == FD_INODE || fdtype == FD_DEVICE){
+    if(f->ip){
+      iput(f->ip);
+      f->ip = 0;
+    }
   }
+  f->type = FD_NONE;
+
+  // return object to slab
+  slab_free(file_slab, f);
 }
 
 // Get metadata about file f.
