@@ -21,3 +21,7 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 #define SYS_lseek  23
+#define SYS_shmget  24
+#define SYS_shmat  25
+#define SYS_shmctl  26
+#define SYS_shmdt  27

@@ -542,3 +542,53 @@ sys_lseek(void)
   }
   return 0;
  }
+
+
+uint64
+sys_shmget(void)
+{
+  int key, size, shmflag;
+  argint(0, &key);
+  argint(1, &size);
+  argint(2, &shmflag);
+  
+  printf("sys_shmget called with key=%d, size=%d, shmflag=%d\n", key, size, shmflag);
+  return 0;
+}
+
+uint64
+sys_shmat(void)
+{
+  int shmid;
+  void *shmaddr;
+  int shmflag;
+  argint(0, &shmid);
+  argaddr(1, (uint64*)&shmaddr);
+  argint(2, &shmflag);
+  printf("sys_shmat called with shmid=%d, shmaddr=%p, shmflag=%d\n", shmid, shmaddr, shmflag);
+  return 0;
+}
+
+uint64
+sys_shmctl(void)
+{
+  int shmid, cmd;
+  struct shmid_ds *buf;
+  argint(0, &shmid);
+  argint(1, &cmd);
+  argaddr(2, (uint64*)&buf);
+  printf("sys_shmctl called with shmid=%d, cmd=%d, buf=%p\n", shmid, cmd, buf);
+  return 0;
+}
+
+uint64
+sys_shmdt(void)
+{
+  void *shmaddr;
+  argaddr(0, (uint64*)&shmaddr);
+  printf("sys_shmdt called with shmaddr=%p\n", shmaddr);
+  return 0;
+}
+
+
+// refcount to increment in shmget or shmat

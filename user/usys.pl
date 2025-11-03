@@ -43,3 +43,7 @@ entry("sbrk");
 entry("pause");
 entry("uptime");
 entry("lseek");
+entry("shmget");
+entry("shmat");
+entry("shmctl");
+entry("shmdt");

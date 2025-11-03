@@ -1,6 +1,7 @@
 #define SBRK_ERROR ((char *)-1)
 
 struct stat;
+struct shmid_ds;
 
 // system calls
 int fork(void);
@@ -25,6 +26,11 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
+
+int shmget(int key, int size, int shmflg);
+void* shmat(int shmid, const void *shmaddr, int shmflg);
+int shmctl(int shmid, int cmd, struct shmid_ds *buf);
+int shmdt(const void *shmaddr);
 
 // ulib.c
 int stat(const char*, struct stat*);

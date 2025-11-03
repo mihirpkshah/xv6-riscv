@@ -484,3 +484,8 @@ ismapped(pagetable_t pagetable, uint64 va)
   }
   return 0;
 }
+
+void shminit() {
+  // Initialize shared memory structures
+  printf("Shared memory system initialized.\n");
+}
